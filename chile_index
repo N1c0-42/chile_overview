@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chile Reiseplaner: Natur & Abenteuer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .region-card:hover { transform: translateY(-4px); transition: all 0.3s ease; }
+        .active-nav { background-color: #0f766e; color: white; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Custom scrollbar for content panels */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <!-- Chosen Palette: "Andean Earth & Ice" - Warm terracotta/copper for Atacama, Deep Teal/Ice Blue for Patagonia, Neutral Slate for UI. -->
+    <!-- Application Structure Plan:
+         1. Dashboard Layout: Sidebar nav (desktop) / Bottom nav (mobile) to switch between 4 key views.
+         2. View 1: "Überblick & Fakten" (General Info) - Cards for quick stats.
+         3. View 2: "Regionen & Highlights" (The Core) - Interactive split view. Select a region (Atacama/Patagonia/Central) to see specific itineraries/activities.
+         4. View 3: "Klima & Reisezeit" (Data Viz) - Charts comparing temp/rain in Oct/Nov to help them visualize packing needs.
+         5. View 4: "Logistik & Tipps" (Practical) - Transport flow and interactive packing checklist.
+         Rationale: This structure breaks the complex logistics of a 4000km long country into manageable, bite-sized decision zones.
+    -->
+    <!-- Visualization & Content Choices:
+         1. Weather Comparison (Bar Chart): Shows the drastic temp difference between Calama and Punta Arenas in Nov to emphasize packing layers.
+         2. Cost/Budget Breakdown (Doughnut Chart): Visualizes where the money goes in a mid-range trip (Flights vs Tours vs Accommodation).
+         3. Interactive Region Cards: Uses Unicode icons and CSS styling to represent environments (Desert vs Ice) without raster images.
+         4. Transport Timeline: A vertical step-flow using CSS borders to show the logical route (Santiago -> North -> South).
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Mobile Header -->
+    <header class="md:hidden bg-teal-800 text-white p-4 flex justify-between items-center z-20">
+        <h1 class="font-bold text-lg">🇨🇱 Chile Planer</h1>
+        <button id="mobile-menu-btn" class="text-white focus:outline-none">
+            <span class="text-2xl">☰</span>
+        </button>
+    </header>
+
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar" class="bg-slate-900 text-slate-300 w-full md:w-64 flex-shrink-0 hidden md:flex flex-col h-full transition-all duration-300 z-10 absolute md:relative top-0 left-0">
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-2xl font-bold text-white tracking-tight">Chile<span class="text-teal-400">Explorer</span></h1>
+            <p class="text-xs mt-2 text-slate-400">Reiseplanung Okt/Nov</p>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1 px-3">
+                <li><button onclick="switchView('overview')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors active-nav" data-target="overview">🔍 Übersicht & Fakten</button></li>
+                <li><button onclick="switchView('regions')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors" data-target="regions">🏔️ Regionen & Highlights</button></li>
+                <li><button onclick="switchView('climate')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors" data-target="climate">☀️ Wetter & Reisezeit</button></li>
+                <li><button onclick="switchView('logistics')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-800 transition-colors" data-target="logistics">✈️ Transport & Tipps</button></li>
+            </ul>
+        </div>
+        <div class="p-4 border-t border-slate-700 text-xs text-slate-500">
+            <p>Fokus: Natur & Wandern</p>
+            <p>Dauer: 3 Wochen</p>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto bg-slate-50 relative custom-scroll" id="main-content">
+        
+        <!-- View: Overview -->
+        <section id="overview" class="view-section p-6 md:p-10 fade-in">
+            <div class="max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-4">Willkommen in Chile 🇨🇱</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed">
+                        Chile ist ein Land der Extreme – von der trockensten Wüste der Welt bis zu den ewigen Eisfeldern Patagoniens. 
+                        Für eure 3-wöchige Reise im Oktober/November (chilenischer Frühling) habt ihr einen idealen Zeitraum gewählt. 
+                        Dieser Bereich gibt euch die wichtigsten Basisinformationen für eine sichere und entspannte Planung.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-teal-500">
+                        <div class="text-2xl mb-2">🗣️</div>
+                        <h3 class="font-bold text-slate-700">Sprache</h3>
+                        <p class="text-sm text-slate-500">Spanisch (Chilenisch ist sehr schnell). Englisch hilft in Hotels, aber Basis-Spanisch ist empfohlen.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500">
+                        <div class="text-2xl mb-2">💰</div>
+                        <h3 class="font-bold text-slate-700">Währung</h3>
+                        <p class="text-sm text-slate-500">Chilenischer Peso (CLP). Kreditkarten weit verbreitet, Bargeld für kleine Orte nötig.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+                        <div class="text-2xl mb-2">🛡️</div>
+                        <h3 class="font-bold text-slate-700">Sicherheit</h3>
+                        <p class="text-sm text-slate-500">Gilt als sicherstes Land Südamerikas. Vorsicht vor Taschendieben in Santiago & Valparaiso.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500">
+                        <div class="text-2xl mb-2">💳</div>
+                        <h3 class="font-bold text-slate-700">Kosten</h3>
+                        <p class="text-sm text-slate-500">Mittelklasse-Niveau vergleichbar mit Südeuropa. Patagonien & Atacama sind teurer als Zentralchile.</p>
+                    </div>
+                </div>
+
+                <!-- Budget Viz -->
+                <div class="bg-white p-6 rounded-xl shadow-sm mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-2">Budget-Verteilung (Geschätzt)</h3>
+                    <p class="text-sm text-slate-500 mb-6">Für eine Mittelklasse-Reise mit organisierten Ausflügen.</p>
+                    <div class="flex flex-col md:flex-row items-center justify-center gap-8">
+                        <div class="chart-container" style="height: 250px; max-width: 250px;">
+                            <canvas id="budgetChart"></canvas>
+                        </div>
+                        <div class="text-sm text-slate-600 max-w-sm">
+                            <ul class="space-y-2">
+                                <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-teal-600 mr-2"></span> <strong>Unterkunft:</strong> Mittelklasse-Hotels & Cabañas.</li>
+                                <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-500 mr-2"></span> <strong>Ausflüge:</strong> Geführte Touren sind oft teuer, aber inkludieren Transport/Guide.</li>
+                                <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span> <strong>Transport:</strong> Inlandsflüge sind essenziell und sollten früh gebucht werden.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Regions -->
+        <section id="regions" class="view-section hidden p-6 md:p-10 fade-in">
+            <div class="max-w-6xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-2">Die Highlights Ihrer Reise</h2>
+                    <p class="text-slate-600">Klicken Sie auf eine Region, um passende Ausflüge und Wanderungen für Oktober/November zu sehen.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[600px]">
+                    <!-- Region Selector -->
+                    <div class="lg:col-span-4 flex flex-col gap-4">
+                        <button onclick="updateRegion('atacama')" class="region-card p-5 rounded-xl border-2 border-transparent hover:border-amber-400 bg-amber-50 text-left transition-all shadow-sm group">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-amber-900 text-lg">🌵 Norden: Atacama Wüste</h3>
+                                <span class="text-2xl group-hover:scale-110 transition-transform">☀️</span>
+                            </div>
+                            <p class="text-sm text-amber-800">Trockenste Wüste, Salzseen, Geysire. Basis: San Pedro de Atacama.</p>
+                        </button>
+
+                        <button onclick="updateRegion('central')" class="region-card p-5 rounded-xl border-2 border-transparent hover:border-purple-400 bg-purple-50 text-left transition-all shadow-sm group">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-purple-900 text-lg">🍇 Zentralchile</h3>
+                                <span class="text-2xl group-hover:scale-110 transition-transform">🍷</span>
+                            </div>
+                            <p class="text-sm text-purple-800">Santiago, Valparaiso, Weingüter. Kultur & Genuss.</p>
+                        </button>
+
+                        <button onclick="updateRegion('patagonia')" class="region-card p-5 rounded-xl border-2 border-transparent hover:border-teal-400 bg-teal-50 text-left transition-all shadow-sm group">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-teal-900 text-lg">🏔️ Süden: Patagonien</h3>
+                                <span class="text-2xl group-hover:scale-110 transition-transform">🧊</span>
+                            </div>
+                            <p class="text-sm text-teal-800">Torres del Paine, Gletscher, Pinguine. Basis: Puerto Natales/Punta Arenas.</p>
+                        </button>
+                    </div>
+
+                    <!-- Region Details Panel -->
+                    <div class="lg:col-span-8 bg-white rounded-xl shadow-lg border border-slate-100 p-6 lg:p-8 overflow-y-auto custom-scroll relative">
+                        <div id="region-content-placeholder" class="absolute inset-0 flex items-center justify-center text-slate-400">
+                            <p>Wählen Sie eine Region aus</p>
+                        </div>
+                        
+                        <div id="region-content" class="hidden">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 id="region-title" class="text-3xl font-bold text-slate-800 mb-2">Region Title</h2>
+                                    <span id="region-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-slate-200 text-slate-700">Badge</span>
+                                </div>
+                                <div id="region-icon" class="text-5xl opacity-20"></div>
+                            </div>
+                            
+                            <p id="region-desc" class="text-lg text-slate-600 mb-8 italic border-l-4 border-slate-300 pl-4">Description goes here.</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-bold text-slate-900 mb-3 border-b pb-2">🎒 Top-Ausflüge (Organisiert)</h4>
+                                    <ul id="region-tours" class="space-y-3 text-sm text-slate-700">
+                                        <!-- JS populated -->
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900 mb-3 border-b pb-2">🥾 Wanderungen (Leicht/Mittel)</h4>
+                                    <ul id="region-hikes" class="space-y-3 text-sm text-slate-700">
+                                        <!-- JS populated -->
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                <h4 class="font-bold text-blue-900 text-sm mb-1">💡 Experten-Tipp für Okt/Nov:</h4>
+                                <p id="region-tip" class="text-sm text-blue-800">Tip text.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Climate -->
+        <section id="climate" class="view-section hidden p-6 md:p-10 fade-in">
+            <div class="max-w-5xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-4">Das Wetter im Oktober/November</h2>
+                    <p class="text-lg text-slate-600">
+                        In Chile reist ihr durch verschiedene Klimazonen. Während es im Norden (Atacama) bereits angenehm warm und extrem trocken ist, beginnt in Patagonien erst der Frühling – das Wetter kann dort sehr wechselhaft, windig und kühl sein.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- Chart Section -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <h3 class="font-bold text-slate-700 mb-4">Temperatur-Vergleich (Nov)</h3>
+                        <div class="chart-container">
+                            <canvas id="weatherChart"></canvas>
+                        </div>
+                        <div class="mt-4 text-xs text-slate-400 text-center">Daten basieren auf historischen Durchschnittswerten für November.</div>
+                    </div>
+
+                    <!-- Text Analysis -->
+                    <div class="space-y-6">
+                        <div class="bg-amber-50 p-5 rounded-xl border border-amber-100">
+                            <h4 class="font-bold text-amber-900 mb-2">🌵 Atacama (Norden)</h4>
+                            <p class="text-sm text-amber-800 mb-2"><strong>Status:</strong> Ideal.</p>
+                            <p class="text-sm text-amber-700">Tagsüber warm (20-25°C), nachts kühl. Die klare Luft sorgt für intensive Sonneneinstrahlung. Perfekt für Sternenbeobachtung.</p>
+                        </div>
+                        
+                        <div class="bg-teal-50 p-5 rounded-xl border border-teal-100">
+                            <h4 class="font-bold text-teal-900 mb-2">🏔️ Patagonien (Süden)</h4>
+                            <p class="text-sm text-teal-800 mb-2"><strong>Status:</strong> Saisonstart (Frühling).</p>
+                            <p class="text-sm text-teal-700">Temperaturen steigen (8-15°C), aber der berühmte patagonische Wind kann stark sein. Das Wetter ändert sich oft stündlich (4 Jahreszeiten an einem Tag).</p>
+                        </div>
+
+                        <div class="bg-purple-50 p-5 rounded-xl border border-purple-100">
+                            <h4 class="font-bold text-purple-900 mb-2">🍇 Zentralchile</h4>
+                            <p class="text-sm text-purple-800 mb-2"><strong>Status:</strong> Angenehm.</p>
+                            <p class="text-sm text-purple-700">Mediterranes Klima, alles blüht, angenehme 20-25°C. Perfekt für Stadtbesichtigungen.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Logistics -->
+        <section id="logistics" class="view-section hidden p-6 md:p-10 fade-in">
+            <div class="max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-4">Transport & Praktisches</h2>
+                    <p class="text-slate-600">Bei 4.300 km Länge ist Logistik entscheidend. Für 3 Wochen empfehlen wir Inlandsflüge, um Zeit zu sparen.</p>
+                </div>
+
+                <!-- Transport Flow -->
+                <div class="mb-10">
+                    <h3 class="text-xl font-bold text-slate-800 mb-6">Empfohlene Reiseroute (Logistik)</h3>
+                    <div class="relative pl-8 border-l-2 border-slate-200 space-y-8">
+                        <div class="relative">
+                            <span class="absolute -left-[41px] bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                                <h4 class="font-bold text-slate-800">Ankunft Santiago (SCL)</h4>
+                                <p class="text-sm text-slate-600">Internationaler Hub. 2-3 Tage Aufenthalt für Akklimatisierung.</p>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute -left-[41px] bg-amber-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                                <h4 class="font-bold text-slate-800">Flug nach Calama (CJC)</h4>
+                                <p class="text-sm text-slate-600">Ca. 2 Std. Flug. Transfer nach San Pedro de Atacama (1 Std). Kein Mietwagen nötig, wenn Touren gebucht werden.</p>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute -left-[41px] bg-slate-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                                <h4 class="font-bold text-slate-800">Flug in den Süden (PUQ oder PNT)</h4>
+                                <p class="text-sm text-slate-600">Via Santiago nach Punta Arenas (PUQ) oder Puerto Natales (PNT - nur saisonal). PNT liegt näher am Torres del Paine.</p>
+                            </div>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute -left-[41px] bg-teal-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">4</span>
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                                <h4 class="font-bold text-slate-800">Transport vor Ort im Süden</h4>
+                                <p class="text-sm text-slate-600">Mietwagen bietet Flexibilität, aber Busse zwischen Punta Arenas, Puerto Natales und Park sind sehr zuverlässig.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Packing Checklist Interaction -->
+                <div class="bg-slate-800 text-slate-100 rounded-xl p-6 md:p-8">
+                    <h3 class="text-xl font-bold mb-4 text-white">🎒 Packliste-Check für Okt/Nov</h3>
+                    <p class="text-sm text-slate-400 mb-6">Das Zwiebelprinzip ist überlebenswichtig.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Wind- & Regenjacke (Hardshell)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Daunenjacke / Fleece (Abends kalt)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Wanderschuhe (eingelaufen, knöchelhoch)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Starker Sonnenschutz (Hut, Brille, LSF 50+)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Lippenbalsam & Feuchtigkeitscreme (Trockenheit)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 bg-slate-700 p-3 rounded hover:bg-slate-600 cursor-pointer transition">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-0">
+                            <span class="text-sm">Tagesrucksack (20-30L)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Health Note -->
+                <div class="mt-8 p-4 bg-red-50 border-l-4 border-red-400 rounded-r text-sm text-red-800">
+                    <strong>⚠️ Gesundheitshinweis:</strong> San Pedro liegt auf 2.400m, Ausflüge gehen bis auf 4.300m (Geysire). Viel trinken, keinen Alkohol am ersten Abend, und langsam angehen lassen (Höhenkrankheit möglich).
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Data Definitions ---
+        const regionData = {
+            atacama: {
+                title: "Atacama Wüste (Norden)",
+                badge: "Abenteuer & Landschaft",
+                icon: "🌵",
+                desc: "Die trockenste Wüste der Welt bietet surreale Landschaften, die eher an den Mars erinnern als an die Erde. Ideal für leichte Wanderungen und spektakuläre Fotografie.",
+                tours: [
+                    "<strong>Valle de la Luna:</strong> Klassiker zum Sonnenuntergang. Leichte Wanderung durch Salzformationen und Dünen.",
+                    "<strong>El Tatio Geysire:</strong> Start um 4:30 Uhr morgens. Spektakuläre Dampfsäulen auf 4.300m Höhe. (Warm anziehen!)",
+                    "<strong>Lagunas Altiplanicas:</strong> Hochlandlagunen mit Flamingos. Landschaftlich atemberaubend."
+                ],
+                hikes: [
+                    "<strong>Guatin (Kaktusschlucht):</strong> Moderate Wanderung entlang eines Bachlaufs mit riesigen Kakteen (ca. 2 Std).",
+                    "<strong>Valle de la Muerte:</strong> Wanderung zu den Dünen, teils sandig aber machbar.",
+                    "<strong>Pukará de Quitor:</strong> Aufstieg zur alten Festung für einen tollen Blick über das Tal (Moderat, steil)."
+                ],
+                tip: "Bucht Touren erst vor Ort in der Calle Caracoles in San Pedro, um Preise zu vergleichen, oder fragt im Hotel. Trinkt extrem viel Wasser wegen der Höhenluft!"
+            },
+            central: {
+                title: "Zentralchile (Santiago & Küste)",
+                badge: "Kultur & Wein",
+                icon: "🍇",
+                desc: "Das Herz des Landes. Santiago bietet Geschichte und Moderne, Valparaíso bunte Kunst und chaotischen Charme, und die Täler dazwischen exzellenten Wein.",
+                tours: [
+                    "<strong>Valparaíso & Viña del Mar:</strong> Tagesausflug ab Santiago. Bunte Häuser, steile Aufzüge und Street Art.",
+                    "<strong>Wein-Tour (Maipo oder Casablanca Tal):</strong> Verkostungen und Mittagessen im Weinberg.",
+                    "<strong>Santiago City Tour:</strong> Plaza de Armas, Mercado Central und Cerro San Cristóbal."
+                ],
+                hikes: [
+                    "<strong>Cerro San Cristóbal:</strong> Leichter Aufstieg oder Spaziergang oben (Seilbahn verfügbar).",
+                    "<strong>Cajón del Maipo:</strong> (Tagesausflug) Wanderung zum 'Embalse El Yeso' (Stausee) in den Anden. Atemberaubend.",
+                    "<strong>La Campana Nationalpark:</strong> (Bei Valparaiso) Palmenwälder, moderate Wanderwege."
+                ],
+                tip: "Nutzt Uber in Santiago – es ist sicher und günstig. Meidet das Zentrum bei Nacht. In Valparaíso auf Wertsachen achten."
+            },
+            patagonia: {
+                title: "Patagonien (Süden)",
+                badge: "Natur pur & Wind",
+                icon: "🏔️",
+                desc: "Wilde, unberührte Natur. Das Highlight ist der Torres del Paine Nationalpark. Puerto Natales dient als perfektes Basislager.",
+                tours: [
+                    "<strong>Full Day Paine:</strong> Bustour durch den Park mit kurzen Spaziergängen zu Aussichtspunkten (Salto Grande, Lago Grey). Ideal für Überblick.",
+                    "<strong>Gletscher-Bootstour:</strong> Zum Balmaceda & Serrano Gletscher (Fjordfahrt ab Puerto Natales).",
+                    "<strong>Pinguin-Tour:</strong> Isla Magdalena (ab Punta Arenas) – Tausende Pinguine (Saisonstart Okt/Nov)."
+                ],
+                hikes: [
+                    "<strong>Base de las Torres:</strong> DER Klassiker. Anspruchsvoll (8 Std., 900hm), aber das Ziel lohnt sich. Nur bei guter Fitness.",
+                    "<strong>Mirador Cuernos:</strong> Moderate Wanderung (ca. 4 Std) zu einem tollen Aussichtspunkt auf die 'Hörner'.",
+                    "<strong>Mirador Condor:</strong> Kurz aber steil, fantastischer 360-Grad-Blick über den Pehoé-See."
+                ],
+                tip: "Kleidung in Schichten (Zwiebelprinzip) ist Pflicht! Bucht Unterkünfte in Puerto Natales weit im Voraus, da die Saison im November anzieht."
+            }
+        };
+
+        // --- View Switching Logic ---
+        function switchView(viewId) {
+            // Hide all sections
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            // Show target section
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            // Update Navigation State
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                if(btn.dataset.target === viewId) {
+                    btn.classList.add('active-nav', 'bg-slate-800');
+                    btn.classList.remove('text-slate-300');
+                } else {
+                    btn.classList.remove('active-nav', 'bg-slate-800');
+                    btn.classList.add('text-slate-300');
+                }
+            });
+
+            // Mobile menu close
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('hidden') && window.innerWidth < 768) {
+                sidebar.classList.add('hidden');
+            }
+
+            // Trigger chart resize if needed
+            if (viewId === 'climate' && window.weatherChartInstance) {
+                window.weatherChartInstance.resize();
+            }
+            if (viewId === 'overview' && window.budgetChartInstance) {
+                window.budgetChartInstance.resize();
+            }
+        }
+
+        // --- Region Update Logic ---
+        function updateRegion(regionKey) {
+            const data = regionData[regionKey];
+            const contentPanel = document.getElementById('region-content');
+            const placeholder = document.getElementById('region-content-placeholder');
+            
+            placeholder.classList.add('hidden');
+            contentPanel.classList.remove('hidden');
+            
+            // Populate Data
+            document.getElementById('region-title').textContent = data.title;
+            document.getElementById('region-badge').textContent = data.badge;
+            document.getElementById('region-icon').textContent = data.icon;
+            document.getElementById('region-desc').textContent = data.desc;
+            document.getElementById('region-tip').textContent = data.tip;
+
+            // Helper to fill lists
+            const fillList = (id, items) => {
+                const list = document.getElementById(id);
+                list.innerHTML = items.map(item => `<li class="flex items-start"><span class="mr-2 mt-1 text-teal-500">➤</span><span>${item}</span></li>`).join('');
+            };
+
+            fillList('region-tours', data.tours);
+            fillList('region-hikes', data.hikes);
+
+            // Add simple highlight animation
+            contentPanel.classList.remove('fade-in');
+            void contentPanel.offsetWidth; // trigger reflow
+            contentPanel.classList.add('fade-in');
+        }
+
+        // --- Mobile Menu ---
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('hidden');
+            sidebar.classList.toggle('absolute');
+            sidebar.classList.toggle('h-screen');
+            sidebar.classList.toggle('w-full');
+            sidebar.classList.toggle('z-50');
+        });
+
+        // --- Chart Initialization ---
+        window.addEventListener('load', () => {
+            // Weather Chart
+            const ctxWeather = document.getElementById('weatherChart').getContext('2d');
+            window.weatherChartInstance = new Chart(ctxWeather, {
+                type: 'bar',
+                data: {
+                    labels: ['San Pedro (Norden)', 'Santiago (Mitte)', 'Punta Arenas (Süden)'],
+                    datasets: [
+                        {
+                            label: 'Max. Temp (°C)',
+                            data: [25, 24, 12],
+                            backgroundColor: 'rgba(245, 158, 11, 0.7)', // Amber
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Min. Temp (°C)',
+                            data: [6, 9, 4],
+                            backgroundColor: 'rgba(15, 118, 110, 0.7)', // Teal
+                            borderColor: 'rgba(15, 118, 110, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Windstärke (Index 1-10)',
+                            type: 'line',
+                            data: [2, 3, 9],
+                            borderColor: 'rgba(100, 116, 139, 0.8)', // Slate
+                            borderWidth: 2,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.type === 'line') {
+                                        return context.dataset.label + ': ' + context.raw + ' (Sehr windig!)';
+                                    }
+                                    return context.dataset.label + ': ' + context.raw + '°C';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Temperatur (°C)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 10,
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Windfaktor' }
+                        }
+                    }
+                }
+            });
+
+            // Budget Chart
+            const ctxBudget = document.getElementById('budgetChart').getContext('2d');
+            window.budgetChartInstance = new Chart(ctxBudget, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Flüge (Intl & Inland)', 'Unterkünfte', 'Touren & Aktivitäten', 'Verpflegung', 'Mietwagen/Bus'],
+                    datasets: [{
+                        data: [25, 30, 20, 15, 10],
+                        backgroundColor: [
+                            '#3b82f6', // Flights Blue
+                            '#0f766e', // Stay Teal
+                            '#f59e0b', // Tours Amber
+                            '#ef4444', // Food Red
+                            '#64748b'  // Transport Slate
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false } // Hide legend to save space, using custom HTML legend
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
